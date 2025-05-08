@@ -1,0 +1,5 @@
+id,name,skills,experience,desiredPosition
+1,山田太郎,"Python,機械学習,データ分析",5,データサイエンティスト
+2,佐藤花子,"Java,Spring Boot",3,バックエンドエンジニア
+3,鈴木一郎,"Python,深層学習,自然言語処理",2,AIエンジニア
+
