@@ -1,0 +1,59 @@
+name: Production Monitoring
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # 30分ごとに実行
+  workflow_dispatch:  # 手動実行用
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check backend health
+        uses: jtalk/url-health-check-action@v3
+        with:
+          url: https://api.rexapp.example.com/health
+          max-attempts: 3
+          retry-delay: 5s
+          follow-redirect: true
+          
+      - name: Check frontend availability
+        uses: jtalk/url-health-check-action@v3
+        with:
+          url: https://rexapp.example.com
+          max-attempts: 3
+          retry-delay: 5s
+          follow-redirect: true
+          
+      - name: Send notification on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: monitoring
+          SLACK_COLOR: danger
+          SLACK_MESSAGE: '❌ Production health check failed!'
+          SLACK_TITLE: Alert
+          SLACK_FOOTER: 'AI採用管理システム'
+
+  performance-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect performance metrics
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USERNAME }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/rex-deployment
+            docker stats --no-stream > /tmp/docker-stats.txt
+            df -h > /tmp/disk-usage.txt
+            cat /tmp/docker-stats.txt /tmp/disk-usage.txt > /tmp/metrics-report.txt
+            
+      - name: Upload metrics report
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-report
+          path: /tmp/metrics-report.txt
+          retention-days: 7 
