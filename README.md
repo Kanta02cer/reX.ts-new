@@ -60,9 +60,9 @@ GitHub Pagesへのアクセスに問題がある場合：
 ## 環境変数
 プロジェクトに必要な環境変数:
 ```
-DOCKER_HUB_USERNAME=Kantacer02 
-DOCKER_HUB_TOKEN=dckr_pat_F910MRUEKc1ncpGuJWwPafDt7Ek
-GOOGLE_API_KEY=AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI
+DOCKER_HUB_USERNAME=<あなたのDockerHubユーザー名> 
+DOCKER_HUB_TOKEN=<あなたのDockerHubトークン>
+GOOGLE_API_KEY=<あなたのGoogle Gemini APIキー>
 ```
 
 ### APIキーの取得方法
