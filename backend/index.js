@@ -41,9 +41,24 @@ register.registerMetric(apiRequestCounter);
 // Expressアプリケーションの作成
 const app = express();
 
+// CORSの設定
+const corsOptions = {
+  origin: [
+    'https://frontend-kinouecertify-gmailcoms-projects.vercel.app',
+    'https://frontend-q4inyvjfd-kinouecertify-gmailcoms-projects.vercel.app',
+    'https://frontend-63713tcxx-kinouecertify-gmailcoms-projects.vercel.app',
+    'https://kinouecertify-gmailcoms-projects.github.io',
+    /\.vercel\.app$/,
+    'http://localhost:3000'
+  ],
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+  optionsSuccessStatus: 204
+};
+
 // ミドルウェアの設定
 app.use(helmet()); // セキュリティヘッダー設定
-app.use(cors()); // CORS対応
+app.use(cors(corsOptions)); // CORS対応
 app.use(morgan('dev')); // リクエストロギング
 app.use(express.json()); // JSONパーサー
 
@@ -85,6 +100,11 @@ app.get('/metrics', async (req, res) => {
 
 // ヘルスチェックエンドポイント
 app.get('/health', (req, res) => {
+  // CORSヘッダーを追加
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

@@ -1,0 +1,48 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Install backend CORS update
+        run: |
+          cd backend
+          npm ci
+          
+      - name: Build and export frontend
+        run: |
+          cd frontend
+          NEXT_PUBLIC_API_BASE_URL=https://backend-iqep5txo6-kinouecertify-gmailcoms-projects.vercel.app GITHUB_ACTIONS=true npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: https://backend-iqep5txo6-kinouecertify-gmailcoms-projects.vercel.app
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend/out
+          cname: ${{ secrets.GITHUB_PAGES_CNAME || '' }}
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy to GitHub Pages' 
