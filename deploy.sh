@@ -4,9 +4,9 @@
 set -e
 
 # 環境変数の設定
-export DOCKER_USERNAME=Kantacer02
-export DOCKER_HUB_TOKEN=dckr_pat_F910MRUEKc1ncpGuJWwPafDt7Ek
-export GOOGLE_API_KEY=AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI
+export DOCKER_USERNAME=<あなたのDockerHubユーザー名>
+export DOCKER_HUB_TOKEN=<あなたのDockerHubトークン>
+export GOOGLE_API_KEY=<あなたのGoogle Gemini APIキー>
 
 echo "=== reX.ts デプロイスクリプト ==="
 echo "1. バックエンドのビルドとプッシュ"
