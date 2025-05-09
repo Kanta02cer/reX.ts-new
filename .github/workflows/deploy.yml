@@ -4,21 +4,28 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+          buildkitd-flags: --debug
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN || 'dckr_pat_F910MRUEKc1ncpGuJWwPafDt7Ek' }}
 
       - name: Build and push Backend
         uses: docker/build-push-action@v4
@@ -26,7 +33,11 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/rex-backend:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}/rex-backend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}/rex-backend:cache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}/rex-backend:cache,mode=max
+          build-args: |
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY || 'AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI' }}
 
       - name: Build and push Frontend
         uses: docker/build-push-action@v4
@@ -34,7 +45,11 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/rex-frontend:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}/rex-frontend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}/rex-frontend:cache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}/rex-frontend:cache,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=http://backend:3001
 
       - name: Deploy to production server
         uses: appleboy/ssh-action@master
@@ -43,10 +58,64 @@ jobs:
           username: ${{ secrets.PRODUCTION_USERNAME }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
-            cd /opt/rex-deployment
-            docker-compose down
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/rex-backend:latest
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/rex-frontend:latest
-            export GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-            docker-compose up -d
+            export DOCKER_USERNAME=${{ secrets.DOCKER_HUB_USERNAME || 'Kantacer02' }}
+            export GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY || 'AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI' }}
+            
+            cd /opt/rex-deployment || mkdir -p /opt/rex-deployment
+            
+            # バックアップを作成
+            if [ -f "docker-compose.yml" ]; then
+              cp docker-compose.yml docker-compose.yml.backup
+            fi
+            
+            # 新しいdocker-compose.ymlを作成
+            cat > docker-compose.yml << EOL
+            version: '3'
+            
+            services:
+              backend:
+                image: ${DOCKER_USERNAME}/rex-backend:latest
+                ports:
+                  - "3001:3001"
+                environment:
+                  - NODE_ENV=production
+                  - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+                  - API_TIMEOUT=60000
+                restart: always
+                volumes:
+                  - backend_logs:/app/logs
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 40s
+            
+              frontend:
+                image: ${DOCKER_USERNAME}/rex-frontend:latest
+                ports:
+                  - "3000:3000"
+                environment:
+                  - NODE_ENV=production
+                  - NEXT_PUBLIC_API_BASE_URL=http://backend:3001
+                depends_on:
+                  backend:
+                    condition: service_healthy
+                restart: always
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:3000"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 40s
+            
+            volumes:
+              backend_logs:
+            EOL
+            
+            # コンテナを再起動
+            docker-compose down || true
+            docker pull ${DOCKER_USERNAME}/rex-backend:latest || echo "Backend image pull failed, trying to continue"
+            docker pull ${DOCKER_USERNAME}/rex-frontend:latest || echo "Frontend image pull failed, trying to continue"
+            docker-compose up -d --force-recreate
             echo "Deployment completed at $(date)" 

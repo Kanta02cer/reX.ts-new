@@ -2,30 +2,40 @@ version: '3'
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME:-Kantacer02}/rex-backend:latest
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=production
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI}
+      - API_TIMEOUT=60000
     restart: always
     volumes:
       - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME:-Kantacer02}/rex-frontend:latest
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_BASE_URL=http://backend:3001/api
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:3001
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   backend_logs: 
