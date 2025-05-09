@@ -13,6 +13,19 @@ Google Gemini APIを活用した採用管理システムです。候補者の履
 - ✅ 接続エラー対応: タイムアウト検出と再試行機能を実装
 - ✅ Vercel認証問題: GitHub Pagesによる代替デプロイを用意
 
+## 目次
+1. [GitHub Pagesへのアクセス](#github-pagesへのアクセス)
+2. [環境変数](#環境変数)
+3. [機能](#機能)
+4. [技術スタック](#技術スタック)
+5. [開発環境のセットアップ](#開発環境のセットアップ)
+6. [本番環境へのデプロイ](#本番環境へのデプロイ)
+7. [API エンドポイント](#api-エンドポイント)
+8. [トラブルシューティング](#トラブルシューティング)
+9. [コントリビューション](#コントリビューション)
+10. [ライセンス](#ライセンス)
+11. [開発の進捗状況](#開発の進捗状況)
+
 ## GitHub Pagesへのアクセス
 
 ### アクセス方法
@@ -37,7 +50,7 @@ Google Gemini APIを活用した採用管理システムです。候補者の履
    - リポジトリの「Actions」タブでデプロイワークフローの実行状況を確認できます
    - 最新のデプロイが成功していれば、GitHub Pagesにアクセス可能です
 
-### トラブルシューティング
+### GitHub Pagesのトラブルシューティング
 GitHub Pagesへのアクセスに問題がある場合：
 1. ブラウザのキャッシュをクリアしてリロード
 2. 別のブラウザでアクセスを試行
@@ -45,11 +58,41 @@ GitHub Pagesへのアクセスに問題がある場合：
 4. リポジトリ管理者に連絡して権限を確認
 
 ## 環境変数
+プロジェクトに必要な環境変数:
 ```
 DOCKER_HUB_USERNAME=Kantacer02 
 DOCKER_HUB_TOKEN=dckr_pat_F910MRUEKc1ncpGuJWwPafDt7Ek
 GOOGLE_API_KEY=AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI
 ```
+
+### APIキーの取得方法
+
+1. [Google AI Studio](https://aistudio.google.com/)にアクセス
+2. アカウント登録/ログイン
+3. API Keyのセクションから新しいAPIキーを生成
+4. 生成されたキーをコピー
+
+### 環境変数の設定方法
+
+#### 開発環境での設定
+
+**バックエンド**:
+バックエンドディレクトリに `.env` ファイルを作成し、以下の内容を記述：
+```
+PORT=3001
+GOOGLE_API_KEY=your_gemini_api_key_here
+```
+
+**フロントエンド**:
+プロジェクトルートディレクトリに `.env.local` ファイルを作成し、以下の内容を記述：
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api
+```
+
+#### 本番環境での設定
+本番環境では、ホスティングプラットフォームの環境変数設定機能を使用：
+- **Vercel**: プロジェクト設定の「Environment Variables」セクション
+- **Docker**: docker-compose.ymlファイルまたは-e オプションで指定
 
 ## 機能
 
@@ -62,14 +105,20 @@ GOOGLE_API_KEY=AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI
 - **フロントエンド**: React, Next.js, TypeScript, Tailwind CSS
 - **バックエンド**: Node.js, Express
 - **AI**: Google Gemini API
+- **インフラ**: Docker, GitHub Actions, Vercel
 
-## セットアップ方法
+## 開発環境のセットアップ
 
 ### 必要なもの
 
 - Node.js (v18以上)
 - npm (v9以上)
+- Git (最新版推奨)
 - Google Gemini API キー
+
+### 推奨開発環境
+- **エディタ**: Visual Studio Code
+- **ブラウザ**: Chrome（開発者ツール使用）
 
 ### インストール手順
 
@@ -101,7 +150,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api
 バックエンドの `.env` ファイルを作成:
 ```
 PORT=3001
-GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your_gemini_api_key_here
 ```
 ※ `your_gemini_api_key_here` は実際のGemini APIキーに置き換えてください。
 
@@ -120,22 +169,184 @@ npm run dev
 
 3. ブラウザで http://localhost:3000 にアクセス
 
+### 環境変数のテスト
+
+環境変数が正しく設定されているか確認するには：
+
+**バックエンド**:
+```bash
+cd backend
+node -e "console.log('GOOGLE_API_KEY:', process.env.GOOGLE_API_KEY ? '設定済み' : '未設定')"
+```
+
+**フロントエンド**:
+```bash
+node -e "console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL ? '設定済み' : '未設定')"
+```
+
+### ディレクトリ構造
+```
+/
+├── frontend/           # フロントエンドコード
+│   ├── app/            # Next.js アプリケーション
+│   ├── components/     # Reactコンポーネント
+│   └── services/       # APIリクエスト処理
+├── backend/            # バックエンドコード
+│   ├── api/            # API エンドポイント
+│   ├── gemini/         # Gemini API 連携
+│   ├── services/       # ビジネスロジック
+│   └── utils/          # ユーティリティ関数
+└── .github/            # GitHub Actionsワークフロー
+```
+
+## 本番環境へのデプロイ
+
+### デプロイ前提条件
+- GitHubアカウント
+- DockerHubアカウント
+- 本番環境サーバー（Ubuntu 20.04 LTS以上推奨）
+- ドメイン名（必要に応じて）
+
+### GitHubシークレットの設定
+GitHub Actionsを使用したCI/CDパイプラインを設定するために、以下のシークレットを設定：
+
+1. リポジトリページで「Settings」→「Secrets and variables」→「Actions」に移動
+2. 「New repository secret」で以下の項目を追加：
+   - `DOCKER_HUB_USERNAME`: DockerHubのユーザー名
+   - `DOCKER_HUB_TOKEN`: DockerHubのアクセストークン
+   - `PRODUCTION_HOST`: 本番サーバーのIPアドレス
+   - `PRODUCTION_USERNAME`: 本番サーバーのSSHユーザー名
+   - `PRODUCTION_SSH_KEY`: 本番サーバーへのSSH秘密鍵
+   - `GOOGLE_API_KEY`: Google Gemini APIのAPIキー
+   - `SLACK_WEBHOOK`: Slackの通知用Webhook URL（オプション）
+
+### 本番サーバーのセットアップ
+
+1. セットアップスクリプトをサーバーにコピー:
+```bash
+scp production-server-setup.sh user@your-server-ip:~/
+```
+
+2. スクリプトを実行:
+```bash
+ssh user@your-server-ip "chmod +x ~/production-server-setup.sh && sudo ~/production-server-setup.sh"
+```
+
+3. 環境変数の設定:
+```bash
+ssh user@your-server-ip "sudo nano /opt/rex-deployment/.env"
+```
+以下の変数を設定:
+```
+DOCKER_USERNAME=your_docker_username
+GOOGLE_API_KEY=your_google_api_key
+```
+
+### SSL証明書の設定（オプション）
+Let's Encryptを使用してSSL証明書を設定:
+```bash
+ssh user@your-server-ip "sudo apt-get update && sudo apt-get install -y certbot python3-certbot-nginx && sudo certbot --nginx -d yourdomain.com"
+```
+
+### デプロイの実行
+GitHub Actionsによる自動デプロイ:
+- mainブランチにプッシュ
+- または「Deploy to Production」ワークフローを手動実行
+
+手動デプロイを行う場合:
+```bash
+ssh user@your-server-ip "cd /opt/rex-deployment && docker-compose pull && docker-compose up -d"
+```
+
+### デプロイの確認
+- フロントエンド: https://yourdomain.com または指定されたURLにアクセス
+- バックエンドAPI: https://api.yourdomain.com/health または指定されたAPI URLにアクセス
+
+### モニタリングの設定（オプション）
+1. モニタリングファイルの転送:
+```bash
+ssh user@your-server-ip "mkdir -p /opt/rex-monitoring"
+scp monitoring-docker-compose.yml prometheus.yml blackbox.yml alertmanager.yml user@your-server-ip:/opt/rex-monitoring/
+```
+
+2. モニタリングスタックの起動:
+```bash
+ssh user@your-server-ip "cd /opt/rex-monitoring && sudo docker-compose -f monitoring-docker-compose.yml up -d"
+```
+
+3. Grafanaの設定:
+   - http://your-server-ip:3030 にアクセス
+   - デフォルト認証情報: admin/admin
+   - パスワード変更と必要なダッシュボードのインポート
+
 ## API エンドポイント
 
 - `POST /api/analyze-career`: 経歴書の分析
 - `POST /api/generate-scout-message`: スカウトメッセージの生成
 - `POST /api/chat`: AIチャット
+- `GET /health`: システムのヘルスチェック
 
-## 環境構築手順
+## トラブルシューティング
 
-1. Google AI StudioでGemini APIキーを取得
-   - [Google AI Studio](https://aistudio.google.com/)にアクセス
-   - APIキーを生成し、環境変数に設定
+### 開発環境での問題
 
-2. 開発環境のセットアップ
-   - Node.jsとnpmをインストール
-   - 依存パッケージをインストール
-   - 環境変数を設定
+#### APIキー関連
+- **問題**: APIキーが機能しない
+- **解決策**: 
+  - キーが正しく環境変数ファイルに設定されているか確認
+  - キーの有効期限が切れていないか確認
+  - API制限に達していないか確認
+
+#### ポート関連
+- **問題**: ポートが使用中
+- **解決策**: 
+  - `.env`ファイルでポート番号を変更
+  - 既存のプロセスを終了: `npx kill-port 3000 3001`
+
+#### 環境変数問題
+- **問題**: 「GOOGLE_API_KEY が設定されていません」エラー
+- **解決策**: 
+  - `.env`ファイルが正しい場所にあるか確認
+  - 開発サーバーを再起動して環境変数を読み込む
+
+### バックエンドAPIエラー
+
+- **問題**: フロントエンドからバックエンドへのAPI呼び出しが失敗する
+- **解決策**:
+  1. バックエンドが起動しているか確認: `curl http://localhost:3001/health`
+  2. CORS設定が正しいか確認
+  3. 環境変数を確認: `NEXT_PUBLIC_API_BASE_URL`が正しいか
+  4. ネットワーク接続問題の場合、VPN設定を確認
+  5. APIタイムアウトの場合、タイムアウト設定を調整
+
+### 接続エラーとVPN問題
+
+- **問題**: APIリクエストがタイムアウトする
+- **解決策**:
+  1. ネットワーク接続を確認
+  2. VPN使用時は、VPN設定がAPIアクセスを妨げていないか確認
+  3. タイムアウト設定を調整:
+     - apiService.tsの`timeout`設定を増加
+     - バックエンドのリクエストタイムアウト設定を見直し
+  4. 「再接続を試みる」ボタンを使用
+
+### Dockerデプロイ問題
+
+- **問題**: Dockerコンテナが起動しない
+- **解決策**:
+  1. コンテナのログを確認: `docker-compose logs`
+  2. 環境変数が正しく設定されているか確認
+  3. ポートの競合がないか確認
+  4. ディスク容量不足でないか確認: `df -h`
+
+### 本番環境デプロイ問題
+
+- **問題**: GitHub Actionsのデプロイが失敗する
+- **解決策**:
+  1. Actionsタブでログを確認
+  2. GitHubシークレットが正しく設定されているか確認
+  3. SSH接続設定を確認
+  4. DockerHubの認証情報を確認
 
 ## コントリビューション
 
@@ -166,13 +377,3 @@ npm run dev
    - 複数のモデル(gemini-1.5-flash, gemini-1.5-pro, gemini-pro, gemini-pro-vision)に対応
    - エラーハンドリングの強化
    - プロンプトエンジニアリングの最適化
-
-## トラブルシューティング
-接続問題やデプロイエラーが発生した場合は、以下の対応を行ってください：
-
-1. ネットワーク接続を確認
-2. VPN設定を確認
-3. API接続タイムアウトの設定を調整
-4. フロントエンドの「再接続を試みる」ボタンを使用
-
-詳細は「トラブルシューティングガイド.md」を参照してください。
