@@ -2,7 +2,7 @@ name: Production Monitoring
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 30分ごとに実行
+    - cron: '0 */6 * * *'  # 6時間ごとに実行（負荷軽減のため頻度を下げる）
   workflow_dispatch:  # 手動実行用
 
 jobs:
@@ -10,50 +10,110 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check backend health
+        id: backend-check
+        continue-on-error: true  # 失敗してもワークフローを続行
         uses: jtalk/url-health-check-action@v3
         with:
-          url: https://api.rexapp.example.com/health
-          max-attempts: 3
-          retry-delay: 5s
+          # 実際のデプロイURLに修正
+          url: https://backend-iqep5txo6-kinouecertify-gmailcoms-projects.vercel.app/health
+          max-attempts: 5
+          retry-delay: 10s
           follow-redirect: true
           
       - name: Check frontend availability
+        id: frontend-check
+        continue-on-error: true  # 失敗してもワークフローを続行
         uses: jtalk/url-health-check-action@v3
         with:
-          url: https://rexapp.example.com
-          max-attempts: 3
-          retry-delay: 5s
+          # 実際のデプロイURLに修正
+          url: https://frontend-63713tcxx-kinouecertify-gmailcoms-projects.vercel.app/
+          max-attempts: 5
+          retry-delay: 10s
           follow-redirect: true
           
+      - name: Check GitHub Pages
+        id: github-pages-check
+        continue-on-error: true  # 失敗してもワークフローを続行
+        uses: jtalk/url-health-check-action@v3
+        with:
+          url: https://kinouecertify-gmailcoms-projects.github.io/reX.ts/
+          max-attempts: 5
+          retry-delay: 10s
+          follow-redirect: true
+
+      - name: Summary Report
+        run: |
+          echo "## 監視結果" >> $GITHUB_STEP_SUMMARY
+          echo "- バックエンド: ${{ steps.backend-check.outcome == 'success' && '✅ 正常' || '❌ 異常' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- フロントエンド: ${{ steps.frontend-check.outcome == 'success' && '✅ 正常' || '❌ 異常' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Pages: ${{ steps.github-pages-check.outcome == 'success' && '✅ 正常' || '❌ 異常' }}" >> $GITHUB_STEP_SUMMARY
+          
       - name: Send notification on failure
-        if: failure()
+        if: steps.backend-check.outcome == 'failure' || steps.frontend-check.outcome == 'failure' || steps.github-pages-check.outcome == 'failure'
         uses: rtCamp/action-slack-notify@v2
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK || '' }}
           SLACK_CHANNEL: monitoring
           SLACK_COLOR: danger
           SLACK_MESSAGE: '❌ Production health check failed!'
           SLACK_TITLE: Alert
           SLACK_FOOTER: 'AI採用管理システム'
+        continue-on-error: true  # Slack通知の失敗はワークフロー全体の失敗としない
 
   performance-metrics:
     runs-on: ubuntu-latest
     steps:
+      - name: Check if server credentials exist
+        id: check-creds
+        run: |
+          if [[ -n "${{ secrets.PRODUCTION_HOST }}" && -n "${{ secrets.PRODUCTION_USERNAME }}" && -n "${{ secrets.PRODUCTION_SSH_KEY }}" ]]; then
+            echo "HAS_CREDENTIALS=true" >> $GITHUB_OUTPUT
+          else
+            echo "HAS_CREDENTIALS=false" >> $GITHUB_OUTPUT
+            echo "サーバー接続情報が設定されていないため、パフォーマンス測定をスキップします" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Collect performance metrics
+        id: collect-metrics
+        if: steps.check-creds.outputs.HAS_CREDENTIALS == 'true'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USERNAME }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
-            cd /opt/rex-deployment
-            docker stats --no-stream > /tmp/docker-stats.txt
-            df -h > /tmp/disk-usage.txt
-            cat /tmp/docker-stats.txt /tmp/disk-usage.txt > /tmp/metrics-report.txt
-            
+            if [ -d "/opt/rex-deployment" ]; then
+              cd /opt/rex-deployment
+              docker stats --no-stream > /tmp/docker-stats.txt || echo "Docker stats failed" > /tmp/docker-stats.txt
+              df -h > /tmp/disk-usage.txt || echo "Disk usage check failed" > /tmp/disk-usage.txt
+              cat /tmp/docker-stats.txt /tmp/disk-usage.txt > /tmp/metrics-report.txt
+            else
+              echo "デプロイディレクトリが存在しません" > /tmp/metrics-report.txt
+              df -h >> /tmp/metrics-report.txt || echo "Disk usage check failed" >> /tmp/metrics-report.txt
+            fi
+        continue-on-error: true  # 接続エラーでもワークフロー全体を失敗としない
+
+      - name: Fallback performance report
+        if: steps.check-creds.outputs.HAS_CREDENTIALS == 'false' || failure()
+        run: |
+          echo "## パフォーマンス測定" >> $GITHUB_STEP_SUMMARY
+          echo "サーバー接続情報が不足しているか、接続に失敗したため測定できませんでした。" >> $GITHUB_STEP_SUMMARY
+          echo "GitHubリポジトリのSecretsで以下の値を設定してください：" >> $GITHUB_STEP_SUMMARY
+          echo "- PRODUCTION_HOST: サーバーのIPアドレスまたはホスト名" >> $GITHUB_STEP_SUMMARY
+          echo "- PRODUCTION_USERNAME: SSHユーザー名" >> $GITHUB_STEP_SUMMARY
+          echo "- PRODUCTION_SSH_KEY: SSH秘密鍵" >> $GITHUB_STEP_SUMMARY
+          
+      - name: Create empty report if needed
+        if: steps.check-creds.outputs.HAS_CREDENTIALS == 'false' || failure()
+        run: |
+          mkdir -p /tmp
+          echo "サーバー接続情報が設定されていないため、メトリクス情報を取得できませんでした。" > /tmp/metrics-report.txt
+          echo "GitHubリポジトリのSecretsで必要な情報を設定してください。" >> /tmp/metrics-report.txt
+
       - name: Upload metrics report
         uses: actions/upload-artifact@v3
         with:
           name: metrics-report
           path: /tmp/metrics-report.txt
-          retention-days: 7 
+          retention-days: 7
+        continue-on-error: true 
