@@ -2,23 +2,31 @@
   "version": 2,
   "builds": [
     {
+      "src": "backend/index.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "package.json",
       "use": "@vercel/next"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "index.js",
+      "src": "/api/(.*)",
+      "dest": "backend/index.js",
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
       }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "$1"
     }
   ],
   "env": {
-    "GOOGLE_API_KEY": "AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI",
+    "GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
     "NODE_ENV": "production",
     "API_TIMEOUT": "60000"
   },
