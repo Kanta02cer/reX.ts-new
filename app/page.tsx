@@ -1,103 +1,138 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [file, setFile] = useState<File | null>(null);
+  const [requirements, setRequirements] = useState("");
+  const [result, setResult] = useState<string[][] | null>(null);
+  const [company, setCompany] = useState("");
+  const [sender, setSender] = useState("");
+  const [position, setPosition] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  async function submitForm() {
+    if (!file) return alert("CSVを選択してください");
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const form = new FormData();
+      form.append("csv", file);
+      form.append("requirements", requirements);
+      form.append("company", company);
+      form.append("sender", sender);
+      form.append("position", position);
+
+      const res = await fetch("/api/process", {
+        method: "POST",
+        body: form,
+      });
+      
+      const json = await res.json();
+      setResult(json.result);
+    } catch (err) {
+      setError("エラーが発生しました。再度お試しください。");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="p-4">
+      <h1 className="text-xl mb-2">CSVアップロード＆マッチング実行</h1>
+      
+      <div className="mb-2">
+        <input
+          type="file"
+          accept=".csv"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="mb-2"
+        />
+      </div>
+      
+      <div className="mb-2">
+        <textarea
+          value={requirements}
+          onChange={(e) => setRequirements(e.target.value)}
+          placeholder="企業要件を入力"
+          className="border p-2 w-full h-24 mb-2"
+        />
+      </div>
+      
+      <div className="grid grid-cols-3 gap-2 mb-2">
+        <input
+          type="text"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="会社名"
+          className="border p-2"
+        />
+        <input
+          type="text"
+          value={sender}
+          onChange={(e) => setSender(e.target.value)}
+          placeholder="送信者名"
+          className="border p-2"
+        />
+        <input
+          type="text"
+          value={position}
+          onChange={(e) => setPosition(e.target.value)}
+          placeholder="役職"
+          className="border p-2"
+        />
+      </div>
+      
+      <button
+        onClick={submitForm}
+        disabled={isLoading}
+        className="px-4 py-2 bg-blue-500 text-white disabled:bg-blue-300"
+      >
+        {isLoading ? "処理中..." : "送信"}
+      </button>
+
+      {error && (
+        <div className="mt-4 p-2 bg-red-100 text-red-700 rounded">
+          {error}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      {result && (
+        <div className="mt-4">
+          <h2 className="font-bold mb-2">結果：</h2>
+          <table className="table-auto border-collapse w-full">
+            <thead>
+              <tr>
+                <th className="border px-2 py-1">Name</th>
+                <th className="border px-2 py-1">Score</th>
+                <th className="border px-2 py-1">Status</th>
+                <th className="border px-2 py-1">Scout Text</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.map((columns, i) => {
+                // columns: ["name", "score", "status", "scout_text"]
+                const [name, score, status, scout] = columns;
+                return (
+                  <tr key={i}>
+                    <td className="border px-2 py-1">{name}</td>
+                    <td className="border px-2 py-1">{score}</td>
+                    <td className={`border px-2 py-1 ${status === '合格' ? 'bg-green-100' : 'bg-red-100'}`}>
+                      {status}
+                    </td>
+                    <td className="border px-2 py-1 whitespace-pre-wrap">
+                      {scout}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
