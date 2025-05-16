@@ -1,6 +1,67 @@
 # reX.ts プロジェクト
 
-Google Gemini APIを活用した採用管理システムです。候補者の履歴書分析、パーソナライズされたスカウトメッセージの自動生成、採用に関する質問への回答など、採用プロセス全体をサポートします。
+## プロジェクト概要
+
+reX.tsは候補者のキャリア情報を分析し、採用条件と照らし合わせて採用可否を判断するAIシステムです。採用判断が「採用」となった候補者には、パーソナライズされたスカウト文章も自動生成します。
+
+## 主な機能
+
+1. **候補者分析と採用判断**（`/api/analyze-career`）
+   - 候補者情報と採用条件を分析し、採用可否を判断
+   - 結果をJSON形式で構造化
+
+2. **スカウト文章生成**（`/api/generate-scout-message`）
+   - 採用判断が「採用」の候補者のみスカウト文章を生成
+
+3. **統合API**（`/api/analyze-and-scout`）
+   - 分析から採用判断、スカウト文章生成までを一括処理
+
+## 技術スタック
+
+- **バックエンド**: Node.js, Express
+- **フロントエンド**: Next.js, React, Tailwind CSS
+- **AI**: Google Gemini API
+- **デプロイ**: Vercel
+
+## デプロイ情報
+
+本プロジェクトはVercelにデプロイされています。
+
+- **本番環境URL**: [https://rex-vector-7n05yc5pg-kinouecertify-gmailcoms-projects.vercel.app/](https://rex-vector-7n05yc5pg-kinouecertify-gmailcoms-projects.vercel.app/)
+
+## ドキュメント一覧
+
+- [APIドキュメント](./API_DOCUMENTATION.md) - APIの使用方法と仕様
+- [実装レポート](./IMPLEMENTATION_REPORT.md) - 実装の詳細と意思決定
+- [デプロイガイド](./デプロイガイド.md) - デプロイ手順の詳細
+- [デプロイ確認手順書](./デプロイ確認手順書.md) - デプロイ後の動作確認手順
+- [Vercelデプロイ確認レポート](./Vercelデプロイ確認レポート.md) - 最新のデプロイ状況
+
+## 開発環境のセットアップ
+
+```bash
+# リポジトリのクローン
+git clone https://github.com/Kanta02cer/reX.ts-new.git
+cd reX.ts-new
+
+# 依存関係のインストール
+npm install
+
+# 開発サーバーの起動
+npm run dev
+```
+
+## 環境変数
+
+`.env.local`ファイルを作成し、以下の環境変数を設定してください：
+
+```
+GOOGLE_API_KEY=あなたのGemini APIキー
+```
+
+## ライセンス
+
+MIT
 
 ## デプロイURL
 - フロントエンド: https://frontend-63713tcxx-kinouecertify-gmailcoms-projects.vercel.app/
@@ -82,7 +143,7 @@ GOOGLE_API_KEY=<あなたのGoogle Gemini APIキー>
 バックエンドディレクトリに `.env` ファイルを作成し、以下の内容を記述：
 ```
 PORT=3001
-GOOGLE_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your_gemini_api_key
 ```
 
 **フロントエンド**:
@@ -152,9 +213,9 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api
 バックエンドの `.env` ファイルを作成:
 ```
 PORT=3001
-GOOGLE_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your_gemini_api_key
 ```
-※ `your_gemini_api_key_here` は実際のGemini APIキーに置き換えてください。
+※ `your_gemini_api_key` は実際のGemini APIキーに置き換えてください。
 
 ### 開発サーバーの起動
 
@@ -306,7 +367,7 @@ ssh user@your-server-ip "cd /opt/rex-monitoring && sudo docker-compose -f monito
   - 既存のプロセスを終了: `npx kill-port 3000 3001`
 
 #### 環境変数問題
-- **問題**: 「GOOGLE_API_KEY が設定されていません」エラー
+- **問題**: "GOOGLE_API_KEY が設定されていません"エラー
 - **解決策**: 
   - `.env`ファイルが正しい場所にあるか確認
   - 開発サーバーを再起動して環境変数を読み込む
@@ -330,7 +391,7 @@ ssh user@your-server-ip "cd /opt/rex-monitoring && sudo docker-compose -f monito
   3. タイムアウト設定を調整:
      - apiService.tsの`timeout`設定を増加
      - バックエンドのリクエストタイムアウト設定を見直し
-  4. 「再接続を試みる」ボタンを使用
+  4. "再接続を試みる"ボタンを使用
 
 ### Dockerデプロイ問題
 
