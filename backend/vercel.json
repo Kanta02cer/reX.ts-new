@@ -9,12 +9,18 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "index.js"
+      "dest": "index.js",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
+      }
     }
   ],
   "env": {
     "GOOGLE_API_KEY": "AIzaSyDosn3ybHfEAV66TsG1fVlTfNQ-itHSFAI",
     "NODE_ENV": "production",
     "API_TIMEOUT": "60000"
-  }
+  },
+  "public": true
 } 

@@ -1,5 +1,5 @@
 /**
- * 候補者の経歴分析と採用可否判断API
+ * 候補者分析と合格者向けスカウト文章生成を一括処理するAPI
  */
 
 const express = require('express');
@@ -53,6 +53,30 @@ ${jobRequirements}
 回答はJSON形式のみで出力し、余分な説明は不要です。
 `;
 
+// スカウト文章生成プロンプトテンプレート
+const generateScoutMessagePrompt = (candidateInfo, jobDescription, analysis) => `
+あなたは採用担当者です。以下の合格となった候補者情報と採用条件、分析結果を基に、パーソナライズされたスカウトメッセージを日本語で作成してください。
+
+【候補者情報】
+${candidateInfo}
+
+【採用条件】
+${jobDescription}
+
+【分析結果】
+${JSON.stringify(analysis, null, 2)}
+
+【作成するスカウトメッセージの条件】
+- 候補者の強みと採用条件との関連性を具体的に言及する
+- 候補者が持つ特定のスキルや経験を評価する内容を含める
+- 丁寧かつプロフェッショナルなトーンで書く
+- 300〜500文字程度
+- 結びには面接への招待と明確な次のステップを提案する
+- 会社名としては「テクノバンク株式会社」を使用する
+
+スカウトメッセージのみを出力し、余分な説明は不要です。
+`;
+
 router.post('/', async (req, res) => {
   try {
     const { resumeData, jobRequirements } = req.body;
@@ -63,11 +87,11 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const prompt = analyzeCareerPrompt(resumeData, jobRequirements);
-    
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    let analysisText = response.text();
+    // 1. 候補者分析を実行
+    const analysisPrompt = analyzeCareerPrompt(resumeData, jobRequirements);
+    const analysisResult = await model.generateContent(analysisPrompt);
+    const analysisResponse = analysisResult.response;
+    let analysisText = analysisResponse.text();
     
     // JSON形式に変換（余分なテキストがある場合は削除）
     let analysisJson;
@@ -88,22 +112,49 @@ router.post('/', async (req, res) => {
     
     // 採用判断の結果を取得
     const hiringDecision = analysisJson.hiringDecision || { decision: '不明' };
+    const isHired = hiringDecision.decision === '採用';
     
-    res.json({
+    // レスポンスの準備
+    const response = {
       analysis: analysisJson,
-      isHired: hiringDecision.decision === '採用',
+      isHired,
       isConsidered: hiringDecision.decision === '検討',
       decision: hiringDecision.decision,
       justification: hiringDecision.justification,
       timestamp: new Date().toISOString()
-    });
+    };
+    
+    // 2. 採用の場合のみスカウト文章を生成
+    if (isHired) {
+      const scoutPrompt = generateScoutMessagePrompt(resumeData, jobRequirements, analysisJson);
+      const scoutResult = await model.generateContent(scoutPrompt);
+      const scoutResponse = scoutResult.response;
+      const scoutMessage = scoutResponse.text();
+      
+      // スカウト文章を追加
+      response.scoutMessage = scoutMessage;
+      response.candidateName = extractCandidateName(resumeData);
+    }
+    
+    res.json(response);
   } catch (error) {
-    console.error('候補者分析エラー:', error);
+    console.error('処理エラー:', error);
     res.status(500).json({
-      error: '候補者分析中にエラーが発生しました',
+      error: '処理中にエラーが発生しました',
       details: error.message
     });
   }
 });
+
+// 候補者名を抽出する補助関数
+function extractCandidateName(candidateInfo) {
+  // 「名前：」または「氏名：」などのパターンを検索
+  const nameMatch = candidateInfo.match(/(?:名前|氏名)[:：]\s*([^\n,，]+)/);
+  if (nameMatch && nameMatch[1]) {
+    return nameMatch[1].trim();
+  }
+  // デフォルト値
+  return '候補者様';
+}
 
 module.exports = router; 

@@ -8,10 +8,12 @@ Google Gemini APIを活用した採用管理システムです。候補者の履
 - GitHub Pages: https://kinouecertify-gmailcoms-projects.github.io/reX.ts/
 
 ## デプロイステータス
-- ✅ フロントエンド: Vercelにデプロイ済み
-- ✅ バックエンド: Vercelにデプロイ済み
+- ✅ フロントエンド: Vercelにデプロイ済み（パブリックアクセス設定済み）
+- ✅ バックエンド: Vercelにデプロイ済み（CORSとパブリックアクセス設定済み）
 - ✅ 接続エラー対応: タイムアウト検出と再試行機能を実装
-- ✅ Vercel認証問題: GitHub Pagesによる代替デプロイを用意
+- ✅ Vercel認証問題: Vercel.jsonの設定を更新し、`public: true`を追加して認証なしでアクセス可能に設定
+- ✅ パッケージ更新: Gemini API SDKを0.24.1に更新し、最新機能に対応
+- ✅ CORS対策: すべてのオリジンからのリクエストを許可するよう設定
 
 ## 目次
 1. [GitHub Pagesへのアクセス](#github-pagesへのアクセス)
@@ -348,6 +350,28 @@ ssh user@your-server-ip "cd /opt/rex-monitoring && sudo docker-compose -f monito
   3. SSH接続設定を確認
   4. DockerHubの認証情報を確認
 
+### Vercel認証問題
+
+- **問題**: Vercelのデプロイで認証画面が表示される
+- **解決策**:
+  1. vercel.jsonに`"public": true`を追加して公開アクセスを許可する
+  2. CORS設定を適切に設定する
+  3. バックエンドAPIのルート設定でヘッダーを追加:
+     ```json
+     "routes": [
+       {
+         "src": "/(.*)",
+         "dest": "index.js",
+         "headers": {
+           "Access-Control-Allow-Origin": "*",
+           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+           "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
+         }
+       }
+     ]
+     ```
+  4. GitHub Pagesを代替デプロイ先として使用する
+
 ## コントリビューション
 
 プルリクエストやイシューは歓迎します。大きな変更を加える前には、まずイシューを開いて変更内容について議論してください。
@@ -377,3 +401,18 @@ ssh user@your-server-ip "cd /opt/rex-monitoring && sudo docker-compose -f monito
    - 複数のモデル(gemini-1.5-flash, gemini-1.5-pro, gemini-pro, gemini-pro-vision)に対応
    - エラーハンドリングの強化
    - プロンプトエンジニアリングの最適化
+
+5. Vercel認証問題の解決
+   - vercel.jsonでの公開アクセス設定
+   - CORS設定の最適化
+   - カスタムヘッダーによるクロスドメインリクエスト対応
+
+6. パフォーマンス最適化
+   - Gemini API SDK 0.24.1へのアップデート
+   - Next.js 15.3.2への更新
+   - キャッシング機能の導入検討
+
+7. セキュリティ強化
+   - Helmet設定のカスタマイズ
+   - CORSポリシーの改善
+   - 環境変数の安全な管理

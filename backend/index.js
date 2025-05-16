@@ -14,6 +14,7 @@ const promClient = require('prom-client');
 // APIルーターのインポート
 const analyzeCareerRouter = require('./api/analyze-career');
 const generateScoutMessageRouter = require('./api/generate-scout-message');
+const analyzeAndScoutRouter = require('./api/analyze-and-scout');
 const chatRouter = require('./api/chat');
 
 // Prometheusメトリクスの設定
@@ -43,24 +44,20 @@ const app = express();
 
 // CORSの設定
 const corsOptions = {
-  origin: [
-    'https://frontend-kinouecertify-gmailcoms-projects.vercel.app',
-    'https://frontend-q4inyvjfd-kinouecertify-gmailcoms-projects.vercel.app',
-    'https://frontend-63713tcxx-kinouecertify-gmailcoms-projects.vercel.app',
-    'https://kinouecertify-gmailcoms-projects.github.io',
-    /\.vercel\.app$/,
-    'http://localhost:3000'
-  ],
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  origin: '*', // すべてのオリジンを許可
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   credentials: true,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  allowedHeaders: 'Content-Type,Authorization,X-Requested-With,Accept'
 };
 
 // ミドルウェアの設定
-app.use(helmet()); // セキュリティヘッダー設定
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+})); // セキュリティヘッダー設定（CORS対応）
 app.use(cors(corsOptions)); // CORS対応
 app.use(morgan('dev')); // リクエストロギング
-app.use(express.json()); // JSONパーサー
+app.use(express.json({ limit: '10mb' })); // JSONパーサー（ファイルサイズ上限を拡大）
 
 // リクエスト時間計測ミドルウェア
 app.use((req, res, next) => {
@@ -82,9 +79,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// プリフライトリクエストの処理
+app.options('*', cors(corsOptions));
+
 // APIエンドポイントの設定
 app.use('/api/analyze-career', analyzeCareerRouter);
 app.use('/api/generate-scout-message', generateScoutMessageRouter);
+app.use('/api/analyze-and-scout', analyzeAndScoutRouter);
 app.use('/api/chat', chatRouter);
 
 // Prometheusメトリクスエンドポイント
@@ -105,7 +106,19 @@ app.get('/health', (req, res) => {
   res.header('Access-Control-Allow-Methods', 'GET');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    apiEndpoints: [
+      '/api/analyze-career',
+      '/api/generate-scout-message',
+      '/api/analyze-and-scout',
+      '/api/chat',
+      '/health',
+      '/metrics'
+    ]
+  });
 });
 
 // エラーハンドリングミドルウェア
