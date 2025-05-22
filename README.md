@@ -1,27 +1,99 @@
-# reX.ts プロジェクト
+# reX.ts - AI採用支援システム
 
-## プロジェクト概要
+## 概要
 
-reX.tsは候補者のキャリア情報を分析し、採用条件と照らし合わせて採用可否を判断するAIシステムです。採用判断が「採用」となった候補者には、パーソナライズされたスカウト文章も自動生成します。
+reX.tsは、AIを活用した次世代の採用支援システムです。候補者のCSVデータを分析し、求人要件との適合度を評価して、採用担当者の意思決定を支援します。合格と判定された候補者には、パーソナライズされたスカウトメッセージを自動生成することも可能です。
 
 ## 主な機能
 
-1. **候補者分析と採用判断**（`/api/analyze-career`）
-   - 候補者情報と採用条件を分析し、採用可否を判断
-   - 結果をJSON形式で構造化
-
-2. **スカウト文章生成**（`/api/generate-scout-message`）
-   - 採用判断が「採用」の候補者のみスカウト文章を生成
-
-3. **統合API**（`/api/analyze-and-scout`）
-   - 分析から採用判断、スカウト文章生成までを一括処理
+- **候補者データのCSVアップロード**：候補者情報を含むCSVファイルを簡単にアップロード
+- **AIによる候補者評価**：Google Gemini AIを使った高度な候補者分析
+- **スカウトメッセージの自動生成**：合格者向けのパーソナライズされたメッセージ生成
+- **データの永続化**：Supabaseを使用した分析結果の保存と履歴管理
+- **モダンなUI/UX**：直感的に操作できるユーザーインターフェース
 
 ## 技術スタック
 
-- **バックエンド**: Node.js, Express
-- **フロントエンド**: Next.js, React, Tailwind CSS
+- **フロントエンド**: Next.js, React, TypeScript, TailwindCSS
+- **バックエンド**: Next.js API Routes
 - **AI**: Google Gemini API
+- **データベース**: Supabase (PostgreSQL)
 - **デプロイ**: Vercel
+
+## 必要な環境変数
+
+```
+GOOGLE_API_KEY=your-gemini-api-key
+NEXT_PUBLIC_GOOGLE_API_KEY=your-gemini-api-key
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+## セットアップ手順
+
+1. リポジトリをクローン
+   ```
+   git clone https://github.com/your-username/reX.ts.git
+   cd reX.ts
+   ```
+
+2. 依存パッケージのインストール
+   ```
+   npm install
+   ```
+
+3. 環境変数の設定
+   `.env.local`ファイルを作成し、必要な環境変数を設定
+
+4. 開発サーバーの起動
+   ```
+   npm run dev
+   ```
+
+5. ブラウザでアクセス
+   `http://localhost:3000`
+
+## 使用方法
+
+1. CSVファイルをアップロード（ヘッダー行を含むCSVファイル）
+2. 企業要件、会社名、担当者名、役職を入力
+3. 「分析実行」ボタンをクリック
+4. AIによる分析結果を確認
+
+## Supabaseのセットアップ
+
+1. [Supabase](https://supabase.com/)でプロジェクトを作成
+2. 以下のテーブルを作成:
+
+```sql
+CREATE TABLE candidates (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  scout_text TEXT,
+  requirements TEXT NOT NULL,
+  company TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+3. 環境変数を設定
+
+## 貢献
+
+プルリクエストは大歓迎です。大きな変更を加える場合は、まずissueを作成して議論してください。
+
+## ライセンス
+
+[MIT](LICENSE)
+
+## 謝辞
+
+- [Gemini AI](https://deepmind.google/technologies/gemini/) - 強力なAI機能を提供
+- [Supabase](https://supabase.com/) - オープンソースのバックエンドサービス
+- [Next.js](https://nextjs.org/) - Reactフレームワーク
+- [TailwindCSS](https://tailwindcss.com/) - ユーティリティファーストのCSSフレームワーク
 
 ## デプロイ情報
 

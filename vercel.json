@@ -12,7 +12,11 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api/process",
+      "dest": "/api/process"
+    },
+    {
+      "src": "/api/(analyze-career|generate-scout-message|analyze-and-scout|chat)(.*)",
       "dest": "backend/index.js",
       "headers": {
         "Access-Control-Allow-Origin": "*",
@@ -27,6 +31,7 @@
   ],
   "env": {
     "GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
+    "NEXT_PUBLIC_GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
     "NODE_ENV": "production",
     "API_TIMEOUT": "60000"
   },
