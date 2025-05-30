@@ -1,17 +1,11 @@
 {
   "version": 2,
-  "name": "rex-ts",
-  "alias": ["rex-ts.vercel.app"],
   "build": {
     "env": {
       "NODE_ENV": "production"
     }
   },
-  "env": {
-    "GEMINI_API_KEY": "@gemini-api-key",
-    "NODE_ENV": "production"
-  },
-  "regions": ["nrt1"],
+  "regions": ["hnd1"],
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
