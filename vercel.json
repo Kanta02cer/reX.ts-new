@@ -1,39 +1,45 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "backend/index.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
+  "name": "rex-ts",
+  "alias": ["rex-ts.vercel.app"],
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
     }
-  ],
-  "routes": [
-    {
-      "src": "/api/process",
-      "dest": "/api/process"
-    },
-    {
-      "src": "/api/(analyze-career|generate-scout-message|analyze-and-scout|chat)(.*)",
-      "dest": "backend/index.js",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept"
-      }
-    },
-    {
-      "src": "/(.*)",
-      "dest": "$1"
-    }
-  ],
-  "env": {
-    "GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
-    "NEXT_PUBLIC_GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
-    "NODE_ENV": "production",
-    "API_TIMEOUT": "60000"
   },
-  "public": true
+  "env": {
+    "GEMINI_API_KEY": "@gemini-api-key",
+    "NODE_ENV": "production"
+  },
+  "regions": ["nrt1"],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
 } 
