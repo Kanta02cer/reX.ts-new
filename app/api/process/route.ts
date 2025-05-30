@@ -5,8 +5,27 @@ import { saveCandidateData } from '@/lib/supabase';
 import { processCSVData, processCSVDataWithSelection, CSVColumnSelection } from '../../../lib/csvProcessor';
 import { ApplicantInput } from '../../../lib/types';
 import { analyzeCandidateProfile, generateScoutMessage as generateMockScoutMessage } from '../../../lib/mockAnalyzer';
+import { RateLimiter, InputValidator, InputSanitizer, SecurityHeaders } from '../../../lib/security';
+import { PerformanceMonitor } from '../../../lib/performance';
 
-// デバッグ用のヘルパー関数
+// リクエスト制限設定
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 10,
+  windowMs: 60000, // 1分間
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  maxApplicants: 100
+};
+
+// セキュリティヘッダーの追加
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  const headers = SecurityHeaders.generateSecurityHeaders();
+  Object.entries(headers).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
+}
+
+// デバッグ用のヘルパー関数（強化版）
 function createErrorResponse(message: string, code: string, status: number = 400, context?: any) {
   const timestamp = new Date().toISOString();
   const requestId = Math.random().toString(36).substr(2, 9);
@@ -15,12 +34,12 @@ function createErrorResponse(message: string, code: string, status: number = 400
     message,
     code,
     status,
-    context
+    context: process.env.NODE_ENV === 'development' ? context : undefined
   });
 
-  return new NextResponse(
+  const response = new NextResponse(
     JSON.stringify({ 
-      error: message,
+      error: InputSanitizer.sanitizeInput(message, { stripHtml: true, maxLength: 500 }),
       code,
       timestamp,
       requestId,
@@ -34,21 +53,128 @@ function createErrorResponse(message: string, code: string, status: number = 400
       },
     }
   );
+
+  return addSecurityHeaders(response);
+}
+
+// 入力検証関数
+function validateInputs(data: {
+  company?: string;
+  requirements?: string;
+  sender?: string;
+  position?: string;
+}) {
+  const errors: string[] = [];
+
+  // 企業名検証
+  if (data.company) {
+    const companyValidation = InputValidator.validate(data.company, {
+      required: true,
+      maxLength: 100,
+      minLength: 1,
+      preventXss: true,
+      preventSqlInjection: true
+    });
+    if (!companyValidation.valid) {
+      errors.push(`企業名: ${companyValidation.errors.join(', ')}`);
+    }
+  }
+
+  // 求人要件検証
+  if (data.requirements) {
+    const requirementsValidation = InputValidator.validate(data.requirements, {
+      required: true,
+      maxLength: 2000,
+      minLength: 10,
+      preventXss: true,
+      preventSqlInjection: true
+    });
+    if (!requirementsValidation.valid) {
+      errors.push(`求人要件: ${requirementsValidation.errors.join(', ')}`);
+    }
+  }
+
+  // 送信者名検証
+  if (data.sender) {
+    const senderValidation = InputValidator.validate(data.sender, {
+      required: true,
+      maxLength: 50,
+      minLength: 1,
+      preventXss: true,
+      preventSqlInjection: true
+    });
+    if (!senderValidation.valid) {
+      errors.push(`送信者名: ${senderValidation.errors.join(', ')}`);
+    }
+  }
+
+  // ポジション名検証
+  if (data.position) {
+    const positionValidation = InputValidator.validate(data.position, {
+      required: true,
+      maxLength: 100,
+      minLength: 1,
+      preventXss: true,
+      preventSqlInjection: true
+    });
+    if (!positionValidation.valid) {
+      errors.push(`ポジション名: ${positionValidation.errors.join(', ')}`);
+    }
+  }
+
+  return errors;
 }
 
 export async function POST(request: NextRequest) {
+  const performanceId = PerformanceMonitor.start('api_process');
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(2, 15);
   
   try {
+    // クライアントIPアドレスの取得（レート制限用）
+    const clientIp = request.headers.get('x-forwarded-for') || 
+                    request.headers.get('x-real-ip') || 
+                    'unknown';
+
+    // レート制限チェック
+    const rateLimitResult = RateLimiter.check(
+      clientIp, 
+      RATE_LIMIT_CONFIG.maxRequests, 
+      RATE_LIMIT_CONFIG.windowMs
+    );
+
+    if (!rateLimitResult.allowed) {
+      return createErrorResponse(
+        'API呼び出し制限に達しました。しばらく時間をおいて再度お試しください。',
+        'RATE_LIMIT_EXCEEDED',
+        429,
+        { 
+          remainingRequests: rateLimitResult.remainingRequests,
+          resetTime: new Date(rateLimitResult.resetTime).toISOString()
+        }
+      );
+    }
+
     const formData = await request.formData();
     
-    // フォームデータの取得
+    // フォームデータの取得と事前サニタイゼーション
     const csvFile = formData.get('csv') as File | null;
-    const company = formData.get('company') as string;
-    const requirements = formData.get('requirements') as string;
-    const sender = formData.get('sender') as string;
-    const position = formData.get('position') as string;
+    const company = InputSanitizer.sanitizeInput(formData.get('company') as string || '', { 
+      stripHtml: true, 
+      maxLength: 100 
+    });
+    const requirements = InputSanitizer.sanitizeInput(formData.get('requirements') as string || '', { 
+      stripHtml: true, 
+      maxLength: 2000 
+    });
+    const sender = InputSanitizer.sanitizeInput(formData.get('sender') as string || '', { 
+      stripHtml: true, 
+      maxLength: 50 
+    });
+    const position = InputSanitizer.sanitizeInput(formData.get('position') as string || '', { 
+      stripHtml: true, 
+      maxLength: 100 
+    });
     const inputMethod = formData.get('inputMethod') as string;
     const applicantsJson = formData.get('applicants') as string;
     const columnSelectionJson = formData.get('columnSelection') as string;
@@ -67,39 +193,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 入力検証
-    if (!company?.trim()) {
+    const errors = validateInputs({ company, requirements, sender, position });
+    if (errors.length > 0) {
       return createErrorResponse(
-        '企業名が指定されていません',
-        'MISSING_COMPANY',
+        `入力検証エラー: ${errors.join(', ')}`,
+        'INPUT_VALIDATION_ERROR',
         400,
-        { company }
-      );
-    }
-
-    if (!requirements?.trim()) {
-      return createErrorResponse(
-        '求人要件が指定されていません',
-        'MISSING_REQUIREMENTS',
-        400,
-        { requirements }
-      );
-    }
-
-    if (!sender?.trim()) {
-      return createErrorResponse(
-        '送信者名が指定されていません',
-        'MISSING_SENDER',
-        400,
-        { sender }
-      );
-    }
-
-    if (!position?.trim()) {
-      return createErrorResponse(
-        'ポジション名が指定されていません',
-        'MISSING_POSITION',
-        400,
-        { position }
+        { errors }
       );
     }
 

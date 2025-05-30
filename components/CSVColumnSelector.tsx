@@ -10,6 +10,13 @@ interface CSVColumnSelectorProps {
   initialSelection?: CSVColumnSelection;
 }
 
+type ColumnRole = 'none' | 'name' | 'id' | 'skill' | 'additional';
+
+interface ColumnSelectionState {
+  selected: boolean;
+  role: ColumnRole;
+}
+
 export default function CSVColumnSelector({ 
   columns, 
   onSelectionChange,
@@ -17,143 +24,176 @@ export default function CSVColumnSelector({
   onBack,
   initialSelection 
 }: CSVColumnSelectorProps) {
-  const [selection, setSelection] = useState<CSVColumnSelection>(() => {
-    if (initialSelection) return initialSelection;
+  const [columnStates, setColumnStates] = useState<ColumnSelectionState[]>(() => {
+    return columns.map((col, index) => {
+      if (initialSelection) {
+        // 既存の選択から状態を復元
+        if (initialSelection.nameColumn === index) {
+          return { selected: true, role: 'name' };
+        }
+        if (initialSelection.idColumn === index) {
+          return { selected: true, role: 'id' };
+        }
+        if (initialSelection.skillColumns.includes(index)) {
+          return { selected: true, role: 'skill' };
+        }
+        if (initialSelection.additionalColumns.includes(index)) {
+          return { selected: true, role: 'additional' };
+        }
+      }
+      
+      // デフォルト状態の設定
+      if (col.isNameColumn) {
+        return { selected: true, role: 'name' };
+      }
+      if (col.isIdColumn) {
+        return { selected: true, role: 'id' };
+      }
+      if (col.isSkillColumn) {
+        return { selected: true, role: 'skill' };
+      }
+      
+      return { selected: false, role: 'none' };
+    });
+  });
 
-    // デフォルト選択の作成
-    const nameColumn = columns.findIndex(col => col.isNameColumn);
-    const idColumn = columns.findIndex(col => col.isIdColumn);
-    const skillColumns = columns
-      .filter(col => col.isSkillColumn)
-      .map(col => col.index);
+  // カラム状態から選択情報を生成
+  const generateSelection = (): CSVColumnSelection => {
+    const nameColumns = columnStates
+      .map((state, index) => state.role === 'name' && state.selected ? index : -1)
+      .filter(index => index !== -1);
     
-    const additionalColumns = columns
-      .filter((col, index) => 
-        index !== (nameColumn !== -1 ? nameColumn : 0) && 
-        index !== idColumn && 
-        !skillColumns.includes(index)
-      )
-      .map(col => col.index);
+    const idColumns = columnStates
+      .map((state, index) => state.role === 'id' && state.selected ? index : -1)
+      .filter(index => index !== -1);
+    
+    const skillColumns = columnStates
+      .map((state, index) => state.role === 'skill' && state.selected ? index : -1)
+      .filter(index => index !== -1);
+    
+    const additionalColumns = columnStates
+      .map((state, index) => state.role === 'additional' && state.selected ? index : -1)
+      .filter(index => index !== -1);
 
     return {
-      nameColumn: nameColumn !== -1 ? nameColumn : 0,
-      idColumn: idColumn !== -1 ? idColumn : undefined,
+      nameColumn: nameColumns[0] ?? 0, // 最初の名前カラムを使用、なければ最初のカラム
+      idColumn: idColumns[0], // 最初のIDカラムを使用
       skillColumns,
       additionalColumns
     };
-  });
+  };
 
   useEffect(() => {
+    const selection = generateSelection();
     if (onSelectionChange) {
       onSelectionChange(selection);
     }
-  }, [selection, onSelectionChange]);
+  }, [columnStates, onSelectionChange]);
 
-  const handleNameColumnChange = (columnIndex: number) => {
-    setSelection(prev => ({ ...prev, nameColumn: columnIndex }));
+  const updateColumnState = (index: number, updates: Partial<ColumnSelectionState>) => {
+    setColumnStates(prev => prev.map((state, i) => 
+      i === index ? { ...state, ...updates } : state
+    ));
   };
 
-  const handleIdColumnChange = (columnIndex: number | undefined) => {
-    setSelection(prev => ({ ...prev, idColumn: columnIndex }));
+  const toggleColumnSelection = (index: number) => {
+    const currentState = columnStates[index];
+    if (currentState.selected) {
+      // 選択解除
+      updateColumnState(index, { selected: false, role: 'none' });
+    } else {
+      // 選択 - デフォルトの役割を設定
+      const column = columns[index];
+      let defaultRole: ColumnRole = 'additional';
+      
+      if (column.isNameColumn) defaultRole = 'name';
+      else if (column.isIdColumn) defaultRole = 'id';
+      else if (column.isSkillColumn) defaultRole = 'skill';
+      
+      updateColumnState(index, { selected: true, role: defaultRole });
+    }
   };
 
-  const handleSkillColumnToggle = (columnIndex: number) => {
-    setSelection(prev => ({
-      ...prev,
-      skillColumns: prev.skillColumns.includes(columnIndex)
-        ? prev.skillColumns.filter(i => i !== columnIndex)
-        : [...prev.skillColumns, columnIndex]
-    }));
+  const changeColumnRole = (index: number, role: ColumnRole) => {
+    if (role === 'none') {
+      updateColumnState(index, { selected: false, role: 'none' });
+    } else {
+      updateColumnState(index, { selected: true, role });
+    }
   };
 
-  const handleAdditionalColumnToggle = (columnIndex: number) => {
-    setSelection(prev => ({
-      ...prev,
-      additionalColumns: prev.additionalColumns.includes(columnIndex)
-        ? prev.additionalColumns.filter(i => i !== columnIndex)
-        : [...prev.additionalColumns, columnIndex]
-    }));
+  const getRoleLabel = (role: ColumnRole) => {
+    switch (role) {
+      case 'name': return '名前';
+      case 'id': return 'ID';
+      case 'skill': return 'スキル';
+      case 'additional': return 'その他';
+      default: return '未選択';
+    }
   };
 
-  const getColumnTypeLabel = (column: CSVColumnInfo) => {
-    if (column.isNameColumn) return '名前';
-    if (column.isIdColumn) return 'ID';
-    if (column.isSkillColumn) return 'スキル';
-    return '一般';
+  const getRoleColor = (role: ColumnRole) => {
+    switch (role) {
+      case 'name': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'id': return 'bg-green-100 text-green-800 border-green-300';
+      case 'skill': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'additional': return 'bg-gray-100 text-gray-800 border-gray-300';
+      default: return 'bg-gray-50 text-gray-500 border-gray-200';
+    }
   };
 
-  const getColumnTypeColor = (column: CSVColumnInfo) => {
-    if (column.isNameColumn) return 'bg-blue-100 text-blue-800';
-    if (column.isIdColumn) return 'bg-green-100 text-green-800';
-    if (column.isSkillColumn) return 'bg-purple-100 text-purple-800';
-    return 'bg-gray-100 text-gray-800';
+  const getRecommendedRole = (column: CSVColumnInfo): ColumnRole => {
+    if (column.isNameColumn) return 'name';
+    if (column.isIdColumn) return 'id';
+    if (column.isSkillColumn) return 'skill';
+    return 'additional';
   };
 
-  const isColumnSelected = (columnIndex: number) => {
-    return (
-      selection.nameColumn === columnIndex ||
-      selection.idColumn === columnIndex ||
-      selection.skillColumns.includes(columnIndex) ||
-      selection.additionalColumns.includes(columnIndex)
-    );
+  const selection = generateSelection();
+  const selectedColumns = columnStates.filter(state => state.selected);
+  const nameColumnSelected = selectedColumns.some(state => state.role === 'name');
+  const isValid = nameColumnSelected && selectedColumns.length > 0;
+
+  const getSelectionSummary = () => {
+    const nameCount = selectedColumns.filter(state => state.role === 'name').length;
+    const idCount = selectedColumns.filter(state => state.role === 'id').length;
+    const skillCount = selectedColumns.filter(state => state.role === 'skill').length;
+    const additionalCount = selectedColumns.filter(state => state.role === 'additional').length;
+    
+    return { nameCount, idCount, skillCount, additionalCount, total: selectedColumns.length };
   };
 
-  const getSelectedColumnsCount = () => {
-    return (
-      1 + // 名前列（必須）
-      (selection.idColumn !== undefined ? 1 : 0) +
-      selection.skillColumns.length +
-      selection.additionalColumns.length
-    );
-  };
-
-  const isNameColumnSelected = selection.nameColumn !== undefined;
-  const hasRequiredColumns = isNameColumnSelected;
-
-  const updateSelection = (newSelection: Partial<CSVColumnSelection>) => {
-    const updated = { ...selection, ...newSelection };
-    setSelection(updated);
-  };
-
-  const toggleIdColumn = (index: number) => {
-    updateSelection({
-      idColumn: selection.idColumn === index ? undefined : index
-    });
-  };
-
-  const toggleSkillColumn = (index: number) => {
-    const newSkillColumns = selection.skillColumns.includes(index)
-      ? selection.skillColumns.filter(i => i !== index)
-      : [...selection.skillColumns, index];
-    updateSelection({ skillColumns: newSkillColumns });
-  };
-
-  const toggleAdditionalColumn = (index: number) => {
-    const newAdditionalColumns = selection.additionalColumns.includes(index)
-      ? selection.additionalColumns.filter(i => i !== index)
-      : [...selection.additionalColumns, index];
-    updateSelection({ additionalColumns: newAdditionalColumns });
-  };
-
-  const getColumnTypeText = (column: CSVColumnInfo) => {
-    if (column.isNameColumn) return '名前列 (推奨)';
-    if (column.isIdColumn) return 'ID列 (推奨)';
-    if (column.isSkillColumn) return 'スキル列 (推奨)';
-    return 'その他';
-  };
-
-  const getColumnBadgeColor = (column: CSVColumnInfo, isSelected: boolean) => {
-    if (!isSelected) return 'bg-gray-100 text-gray-600';
-    if (column.isNameColumn) return 'bg-blue-100 text-blue-800';
-    if (column.isIdColumn) return 'bg-green-100 text-green-800';
-    if (column.isSkillColumn) return 'bg-purple-100 text-purple-800';
-    return 'bg-gray-100 text-gray-800';
-  };
+  const summary = getSelectionSummary();
 
   const handleComplete = () => {
-    if (onSelectionComplete && hasRequiredColumns) {
+    if (onSelectionComplete && isValid) {
       onSelectionComplete(selection);
     }
+  };
+
+  const selectAll = () => {
+    setColumnStates(prev => prev.map((state, index) => {
+      const column = columns[index];
+      return {
+        selected: true,
+        role: getRecommendedRole(column)
+      };
+    }));
+  };
+
+  const clearAll = () => {
+    setColumnStates(prev => prev.map(() => ({ selected: false, role: 'none' as ColumnRole })));
+  };
+
+  const selectRecommended = () => {
+    setColumnStates(prev => prev.map((state, index) => {
+      const column = columns[index];
+      const shouldSelect = column.isNameColumn || column.isIdColumn || column.isSkillColumn;
+      return {
+        selected: shouldSelect,
+        role: shouldSelect ? getRecommendedRole(column) : 'none'
+      };
+    }));
   };
 
   return (
@@ -162,7 +202,7 @@ export default function CSVColumnSelector({
         <div>
           <h2 className="text-lg font-semibold text-gray-900">カラム選択</h2>
           <p className="text-sm text-gray-500 mt-1">
-            分析に使用するカラムを選択してください。名前列は必須です。
+            分析に使用するカラムを選択し、各カラムの役割を設定してください
           </p>
         </div>
         {onBack && (
@@ -178,117 +218,136 @@ export default function CSVColumnSelector({
         )}
       </div>
 
+      {/* クイック選択ボタン */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">クイック選択</h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={selectRecommended}
+            className="inline-flex items-center px-3 py-1 border border-blue-300 rounded-md text-sm text-blue-700 bg-blue-50 hover:bg-blue-100"
+          >
+            <svg className="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            推奨選択
+          </button>
+          <button
+            onClick={selectAll}
+            className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50"
+          >
+            すべて選択
+          </button>
+          <button
+            onClick={clearAll}
+            className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50"
+          >
+            すべて解除
+          </button>
+        </div>
+      </div>
+
       {/* 選択サマリー */}
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <h3 className="text-sm font-medium text-blue-900 mb-2">選択サマリー</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-blue-700 font-medium">名前列:</span>
-            <span className="ml-2 text-blue-800">
-              {selection.nameColumn !== undefined ? columns[selection.nameColumn]?.name || '未選択' : '未選択'}
-            </span>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">{summary.total}</div>
+            <div className="text-blue-700">総選択数</div>
           </div>
-          <div>
-            <span className="text-blue-700 font-medium">ID列:</span>
-            <span className="ml-2 text-blue-800">
-              {selection.idColumn !== undefined ? columns[selection.idColumn]?.name || '未選択' : '未選択'}
-            </span>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">{summary.nameCount}</div>
+            <div className="text-blue-700">名前</div>
           </div>
-          <div>
-            <span className="text-blue-700 font-medium">スキル列:</span>
-            <span className="ml-2 text-blue-800">{selection.skillColumns.length}個</span>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">{summary.idCount}</div>
+            <div className="text-green-700">ID</div>
           </div>
-          <div>
-            <span className="text-blue-700 font-medium">追加列:</span>
-            <span className="ml-2 text-blue-800">{selection.additionalColumns.length}個</span>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">{summary.skillCount}</div>
+            <div className="text-purple-700">スキル</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-600">{summary.additionalCount}</div>
+            <div className="text-gray-700">その他</div>
           </div>
         </div>
       </div>
 
       {/* カラム一覧 */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-900">利用可能なカラム</h3>
-        <div className="grid gap-3">
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-gray-900 flex items-center">
+          利用可能なカラム
+          <span className="ml-2 text-xs text-gray-500">({columns.length}個)</span>
+        </h3>
+        
+        <div className="space-y-2 max-h-96 overflow-y-auto">
           {columns.map((column, index) => {
-            const isNameColumn = selection.nameColumn === index;
-            const isIdColumn = selection.idColumn === index;
-            const isSkillColumn = selection.skillColumns.includes(index);
-            const isAdditionalColumn = selection.additionalColumns.includes(index);
-            const isSelected = isNameColumn || isIdColumn || isSkillColumn || isAdditionalColumn;
+            const state = columnStates[index];
+            const recommendedRole = getRecommendedRole(column);
+            const isRecommended = state.role === recommendedRole && recommendedRole !== 'additional';
 
             return (
               <div
                 key={index}
-                className={`p-4 border rounded-lg transition-colors ${
-                  isSelected
+                className={`p-3 border rounded-lg transition-all ${
+                  state.selected
                     ? 'border-blue-300 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getColumnBadgeColor(column, isSelected)}`}>
-                        {getColumnTypeText(column)}
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900">{column.name}</h4>
-                      <p className="text-xs text-gray-500">
-                        サンプル: {column.sampleData.slice(0, 3).join(', ')}
-                        {column.sampleData.length > 3 && '...'}
+                  <div className="flex items-center space-x-3 flex-1">
+                    {/* チェックボックス */}
+                    <input
+                      type="checkbox"
+                      checked={state.selected}
+                      onChange={() => toggleColumnSelection(index)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    
+                    {/* カラム情報 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                          {column.name}
+                        </h4>
+                        {isRecommended && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            推奨
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">
+                        サンプル: {column.sampleData.slice(0, 2).join(', ')}
+                        {column.sampleData.length > 2 && '...'}
                       </p>
                     </div>
                   </div>
                   
+                  {/* 役割選択 */}
                   <div className="flex items-center space-x-2">
-                    {/* 名前列選択 */}
-                    <button
-                      onClick={() => updateSelection({ nameColumn: index })}
-                      className={`px-3 py-1 text-xs font-medium rounded-md border ${
-                        isNameColumn
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    <select
+                      value={state.selected ? state.role : 'none'}
+                      onChange={(e) => changeColumnRole(index, e.target.value as ColumnRole)}
+                      disabled={!state.selected}
+                      className={`text-xs px-2 py-1 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                        state.selected 
+                          ? 'bg-white border-gray-300' 
+                          : 'bg-gray-100 border-gray-200 text-gray-400'
                       }`}
                     >
-                      名前
-                    </button>
+                      <option value="none">未選択</option>
+                      <option value="name">名前</option>
+                      <option value="id">ID</option>
+                      <option value="skill">スキル</option>
+                      <option value="additional">その他</option>
+                    </select>
                     
-                    {/* ID列選択 */}
-                    <button
-                      onClick={() => toggleIdColumn(index)}
-                      className={`px-3 py-1 text-xs font-medium rounded-md border ${
-                        isIdColumn
-                          ? 'bg-green-600 text-white border-green-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      ID
-                    </button>
-                    
-                    {/* スキル列選択 */}
-                    <button
-                      onClick={() => toggleSkillColumn(index)}
-                      className={`px-3 py-1 text-xs font-medium rounded-md border ${
-                        isSkillColumn
-                          ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      スキル
-                    </button>
-                    
-                    {/* 追加列選択 */}
-                    <button
-                      onClick={() => toggleAdditionalColumn(index)}
-                      className={`px-3 py-1 text-xs font-medium rounded-md border ${
-                        isAdditionalColumn
-                          ? 'bg-gray-600 text-white border-gray-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      追加
-                    </button>
+                    {state.selected && (
+                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${getRoleColor(state.role)}`}>
+                        {getRoleLabel(state.role)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -297,23 +356,8 @@ export default function CSVColumnSelector({
         </div>
       </div>
 
-      {/* アクションボタン */}
-      {onSelectionComplete && (
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={handleComplete}
-            disabled={!hasRequiredColumns}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            次へ進む
-            <svg className="ml-2 -mr-1 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {!hasRequiredColumns && (
+      {/* バリデーション警告 */}
+      {!isValid && (
         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -322,12 +366,42 @@ export default function CSVColumnSelector({
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">必須項目が選択されていません</h3>
+              <h3 className="text-sm font-medium text-yellow-800">設定が不完全です</h3>
               <div className="mt-2 text-sm text-yellow-700">
-                <p>名前列を選択してください。分析を実行するために必要です。</p>
+                <ul className="list-disc list-inside">
+                  {!nameColumnSelected && (
+                    <li>名前カラムを少なくとも1つ選択してください</li>
+                  )}
+                  {selectedColumns.length === 0 && (
+                    <li>少なくとも1つのカラムを選択してください</li>
+                  )}
+                </ul>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* アクションボタン */}
+      {onSelectionComplete && (
+        <div className="mt-6 flex justify-between items-center">
+          <div className="text-sm text-gray-500">
+            {summary.total > 0 ? (
+              `${summary.total}個のカラムが選択されています`
+            ) : (
+              'カラムが選択されていません'
+            )}
+          </div>
+          <button
+            onClick={handleComplete}
+            disabled={!isValid}
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            次へ進む
+            <svg className="ml-2 -mr-1 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </button>
         </div>
       )}
     </div>

@@ -8,235 +8,304 @@ interface ApplicantFormProps {
 }
 
 export default function ApplicantForm({ applicants, onApplicantsChange }: ApplicantFormProps) {
-  const [isAddingApplicant, setIsAddingApplicant] = useState(false);
-  const [newApplicant, setNewApplicant] = useState<ApplicantInput>({
+  const [currentApplicant, setCurrentApplicant] = useState<ApplicantInput>({
     id: '',
     name: '',
-    skills: []
+    skills: [],
+    experience: '',
+    education: '',
+    additionalInfo: ''
   });
 
-  const addApplicant = () => {
-    if (newApplicant.name.trim()) {
-      const applicant = {
-        ...newApplicant,
-        id: `applicant_${Date.now()}`,
-        skills: newApplicant.skills.filter(skill => skill.trim() !== '')
-      };
-      onApplicantsChange([...applicants, applicant]);
-      setNewApplicant({ id: '', name: '', skills: [] });
-      setIsAddingApplicant(false);
+  const [skillsText, setSkillsText] = useState<string>(''); // スキル入力用の文字列
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(-1);
+
+  const handleInputChange = (field: keyof ApplicantInput, value: string) => {
+    if (field === 'skills') {
+      setSkillsText(value);
+      const skillsArray = value.split(',').map(skill => skill.trim()).filter(skill => skill.length > 0);
+      setCurrentApplicant(prev => ({
+        ...prev,
+        skills: skillsArray
+      }));
+    } else {
+      setCurrentApplicant(prev => ({
+        ...prev,
+        [field]: value
+      }));
     }
   };
 
-  const removeApplicant = (id: string) => {
-    onApplicantsChange(applicants.filter(a => a.id !== id));
+  const handleAddApplicant = () => {
+    if (!currentApplicant.name.trim()) {
+      alert('申請者名を入力してください');
+      return;
+    }
+
+    const newApplicant = {
+      ...currentApplicant,
+      id: currentApplicant.id || `applicant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+
+    if (isEditing) {
+      const updatedApplicants = [...applicants];
+      updatedApplicants[editingIndex] = newApplicant;
+      onApplicantsChange(updatedApplicants);
+      setIsEditing(false);
+      setEditingIndex(-1);
+    } else {
+      onApplicantsChange([...applicants, newApplicant]);
+    }
+
+    // フォームをリセット
+    setCurrentApplicant({
+      id: '',
+      name: '',
+      skills: [],
+      experience: '',
+      education: '',
+      additionalInfo: ''
+    });
+    setSkillsText('');
   };
 
-  const updateApplicant = (id: string, field: keyof ApplicantInput, value: any) => {
-    onApplicantsChange(applicants.map(a => 
-      a.id === id ? { ...a, [field]: value } : a
-    ));
+  const handleEditApplicant = (index: number) => {
+    const applicant = applicants[index];
+    setCurrentApplicant(applicant);
+    setSkillsText(applicant.skills.join(', '));
+    setIsEditing(true);
+    setEditingIndex(index);
   };
 
-  const addSkill = (applicantId: string) => {
-    const applicant = applicants.find(a => a.id === applicantId);
-    if (applicant) {
-      updateApplicant(applicantId, 'skills', [...applicant.skills, '']);
+  const handleDeleteApplicant = (index: number) => {
+    if (window.confirm('この申請者を削除しますか？')) {
+      const updatedApplicants = applicants.filter((_, i) => i !== index);
+      onApplicantsChange(updatedApplicants);
     }
   };
 
-  const updateSkill = (applicantId: string, skillIndex: number, value: string) => {
-    const applicant = applicants.find(a => a.id === applicantId);
-    if (applicant) {
-      const newSkills = [...applicant.skills];
-      newSkills[skillIndex] = value;
-      updateApplicant(applicantId, 'skills', newSkills);
-    }
+  const handleCancelEdit = () => {
+    setCurrentApplicant({
+      id: '',
+      name: '',
+      skills: [],
+      experience: '',
+      education: '',
+      additionalInfo: ''
+    });
+    setSkillsText('');
+    setIsEditing(false);
+    setEditingIndex(-1);
   };
 
-  const removeSkill = (applicantId: string, skillIndex: number) => {
-    const applicant = applicants.find(a => a.id === applicantId);
-    if (applicant) {
-      const newSkills = applicant.skills.filter((_, index) => index !== skillIndex);
-      updateApplicant(applicantId, 'skills', newSkills);
-    }
+  const addSampleData = () => {
+    const sampleApplicants: ApplicantInput[] = [
+      {
+        id: 'sample_1',
+        name: '田中太郎',
+        skills: ['JavaScript', 'React', 'Node.js', 'TypeScript'],
+        experience: '5年',
+        education: '大学卒業',
+        additionalInfo: 'フロントエンド開発のリードエンジニアとして3年の経験があります。'
+      },
+      {
+        id: 'sample_2',
+        name: '佐藤花子',
+        skills: ['Python', 'Django', 'PostgreSQL', 'AWS'],
+        experience: '3年',
+        education: '修士課程修了',
+        additionalInfo: 'バックエンド開発とクラウドインフラの構築経験があります。'
+      },
+      {
+        id: 'sample_3',
+        name: '山田次郎',
+        skills: ['Java', 'Spring Boot', 'MySQL'],
+        experience: '7年',
+        education: '大学卒業',
+        additionalInfo: 'エンタープライズシステムの開発経験が豊富です。'
+      }
+    ];
+
+    onApplicantsChange([...applicants, ...sampleApplicants]);
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">候補者情報の入力</h2>
-        <button
-          onClick={() => setIsAddingApplicant(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <svg className="mr-2 -ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          候補者を追加
-        </button>
+    <div className="space-y-6">
+      {/* 申請者入力フォーム */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {isEditing ? '申請者情報を編集' : '申請者情報を入力'}
+          </h2>
+          {applicants.length === 0 && (
+            <button
+              onClick={addSampleData}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              サンプルデータを追加
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              申請者名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={currentApplicant.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="例: 田中太郎"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
+              経験年数
+            </label>
+            <input
+              id="experience"
+              type="text"
+              value={currentApplicant.experience}
+              onChange={(e) => handleInputChange('experience', e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="例: 5年"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="education" className="block text-sm font-medium text-gray-700 mb-1">
+              学歴
+            </label>
+            <input
+              id="education"
+              type="text"
+              value={currentApplicant.education}
+              onChange={(e) => handleInputChange('education', e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="例: 大学卒業"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="skills" className="block text-sm font-medium text-gray-700 mb-1">
+              スキル・技術
+            </label>
+            <input
+              id="skills"
+              type="text"
+              value={skillsText}
+              onChange={(e) => handleInputChange('skills', e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="例: JavaScript, React, Node.js"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="additionalInfo" className="block text-sm font-medium text-gray-700 mb-1">
+            追加情報
+          </label>
+          <textarea
+            id="additionalInfo"
+            rows={3}
+            value={currentApplicant.additionalInfo}
+            onChange={(e) => handleInputChange('additionalInfo', e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            placeholder="プロジェクト経験、特記事項など..."
+          />
+        </div>
+
+        <div className="mt-6 flex justify-end space-x-3">
+          {isEditing && (
+            <button
+              onClick={handleCancelEdit}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              キャンセル
+            </button>
+          )}
+          <button
+            onClick={handleAddApplicant}
+            disabled={!currentApplicant.name.trim()}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isEditing ? '更新' : '追加'}
+          </button>
+        </div>
       </div>
 
-      {/* 新規候補者追加フォーム */}
-      {isAddingApplicant && (
-        <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-          <h3 className="text-sm font-medium text-gray-900 mb-4">新規候補者</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                氏名 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={newApplicant.name}
-                onChange={(e) => setNewApplicant({...newApplicant, name: e.target.value})}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="例: 田中太郎"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">スキル</label>
-              <div className="space-y-2">
-                {newApplicant.skills.map((skill, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={skill}
-                      onChange={(e) => {
-                        const newSkills = [...newApplicant.skills];
-                        newSkills[index] = e.target.value;
-                        setNewApplicant({...newApplicant, skills: newSkills});
-                      }}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="例: JavaScript"
-                    />
+      {/* 申請者一覧 */}
+      {applicants.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              登録済み申請者一覧 ({applicants.length}名)
+            </h3>
+            <button
+              onClick={() => onApplicantsChange([])}
+              className="text-sm text-red-600 hover:text-red-800"
+            >
+              全て削除
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {applicants.map((applicant, index) => (
+              <div
+                key={applicant.id}
+                className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-gray-900">{applicant.name}</h4>
+                    <div className="mt-1 text-sm text-gray-500 space-y-1">
+                      {applicant.skills && (
+                        <p><span className="font-medium">スキル:</span> {applicant.skills.join(', ')}</p>
+                      )}
+                      {applicant.experience && (
+                        <p><span className="font-medium">経験:</span> {applicant.experience}</p>
+                      )}
+                      {applicant.education && (
+                        <p><span className="font-medium">学歴:</span> {applicant.education}</p>
+                      )}
+                      {applicant.additionalInfo && (
+                        <p><span className="font-medium">追加情報:</span> {applicant.additionalInfo}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4">
                     <button
-                      onClick={() => {
-                        const newSkills = newApplicant.skills.filter((_, i) => i !== index);
-                        setNewApplicant({...newApplicant, skills: newSkills});
-                      }}
-                      className="p-2 text-red-600 hover:text-red-800"
+                      onClick={() => handleEditApplicant(index)}
+                      className="text-sm text-blue-600 hover:text-blue-800"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      編集
+                    </button>
+                    <button
+                      onClick={() => handleDeleteApplicant(index)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      削除
                     </button>
                   </div>
-                ))}
-                <button
-                  onClick={() => setNewApplicant({...newApplicant, skills: [...newApplicant.skills, '']})}
-                  className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  <svg className="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  スキルを追加
-                </button>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setIsAddingApplicant(false);
-                  setNewApplicant({ id: '', name: '', skills: [] });
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={addApplicant}
-                disabled={!newApplicant.name.trim()}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                追加
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* 既存候補者一覧 */}
-      {applicants.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-gray-900">登録済み候補者 ({applicants.length}名)</h3>
-          {applicants.map((applicant) => (
-            <div key={applicant.id} className="p-4 border border-gray-200 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      value={applicant.name}
-                      onChange={(e) => updateApplicant(applicant.id, 'name', e.target.value)}
-                      className="text-sm font-medium text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={() => removeApplicant(applicant.id)}
-                  className="p-1 text-red-600 hover:text-red-800"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">スキル</label>
-                <div className="space-y-2">
-                  {applicant.skills.map((skill, skillIndex) => (
-                    <div key={skillIndex} className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={skill}
-                        onChange={(e) => updateSkill(applicant.id, skillIndex, e.target.value)}
-                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="スキル名"
-                      />
-                      <button
-                        onClick={() => removeSkill(applicant.id, skillIndex)}
-                        className="p-1 text-red-600 hover:text-red-800"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => addSkill(applicant.id)}
-                    className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs text-gray-600 bg-white hover:bg-gray-50"
-                  >
-                    <svg className="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    スキル追加
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {applicants.length === 0 && !isAddingApplicant && (
-        <div className="text-center py-8">
+      {applicants.length === 0 && (
+        <div className="bg-gray-50 rounded-lg p-8 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">候補者が登録されていません</h3>
-          <p className="mt-1 text-sm text-gray-500">「候補者を追加」ボタンをクリックして候補者情報を入力してください。</p>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">申請者が登録されていません</h3>
+          <p className="mt-1 text-sm text-gray-500">上のフォームから申請者情報を入力してください</p>
         </div>
       )}
     </div>
